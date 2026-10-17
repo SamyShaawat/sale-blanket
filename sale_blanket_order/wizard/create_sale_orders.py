@@ -15,7 +15,11 @@ class BlanketOrderWizard(models.TransientModel):
     def _default_order(self):
         # in case the cron hasn't run
         self.env["sale.blanket.order"].expire_orders()
-        if not self.env.context.get("active_id"):
+        # active_id is a blanket order only when the wizard is opened from the
+        # blanket order form, from the lines it is the id of a line
+        if self.env.context.get("active_model") != "sale.blanket.order" or not (
+            self.env.context.get("active_id")
+        ):
             return False
         blanket_order = self.env["sale.blanket.order"].search(
             [("id", "=", self.env.context["active_id"])], limit=1

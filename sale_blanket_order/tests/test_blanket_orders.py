@@ -293,6 +293,41 @@ class TestSaleBlanketOrders(SaleCommon):
         self.assertEqual(bo_lines[0].remaining_uom_qty, 10.0)
         self.assertEqual(bo_lines[1].remaining_uom_qty, 30.0)
 
+    def test_03_create_sale_order_from_lines_with_expired_order(self):
+        """Opening the wizard from the lines list must not look the active_id
+        up as a blanket order id"""
+        orders = self.blanket_order_obj.create(
+            [
+                {
+                    "partner_id": self.partner.id,
+                    "validity_start_date": self.yesterday,
+                    "validity_date": self.tomorrow,
+                    "payment_term_id": self.payment_term.id,
+                    "pricelist_id": self.sale_pricelist.id,
+                    "line_ids": [
+                        fields.Command.create(
+                            {
+                                "product_id": self.product1.id,
+                                "product_uom": self.product1.uom_id.id,
+                                "original_uom_qty": 20.0,
+                                "price_unit": 30.0,
+                            }
+                        )
+                    ],
+                }
+                for _i in range(2)
+            ]
+        )
+        open_order, expired_order = orders
+        open_order.action_confirm()
+        expired_order.write({"state": "expired"})
+        wizard = self.blanket_order_wiz_obj.with_context(
+            active_model="sale.blanket.order.line",
+            active_id=expired_order.id,
+            active_ids=open_order.line_ids.ids,
+        ).create({})
+        self.assertEqual(len(wizard.line_ids), 1)
+
     def test_04_create_sale_order_add_blanket_order_line(self):
         """We create a blanket order and the separately we create
         a sale order and see if blanket order lines have been
